@@ -5,7 +5,6 @@ const byte rxPin = D1;
 const byte txPin = D2;
 SoftwareSerial ESP_Serial(rxPin, txPin);
 
-
 const byte numChars = 32;
 char receivedChars[numChars];
 char tempChars[numChars];       
