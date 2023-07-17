@@ -1,9 +1,13 @@
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include <WiFiClientSecure.h>
+#include "config.h"
 
 // WIFI ------------------------------------------------------------------------------
-const char* ssid = "iPhone";
-const char* password = "12345678";
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASSWORD;
 
 void setup_wifi() {
   delay(10);
@@ -27,6 +31,53 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+// MQTT ------------------------------------------------------------------------------
+const char *mqtt_server = MQTT_SERVER; 
+const char *mqtt_clientid = MQTT_CLIENT_ID;
+const char *mqtt_username = MQTT_USERNAME;
+const char *mqtt_password = MQTT_PASSWORD;
+const int   mqtt_port = MQTT_PORT;
+const int   mqtt_websocket_port = MQTT_WEBSOCKET_PORT;
+
+WiFiClientSecure espClient;
+PubSubClient client(espClient);
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");   
+    String clientId = "ESP8266Client-";   // Create a random client ID
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str(),mqtt_username,mqtt_password)) {
+      Serial.println("connected");
+      //client.subscribe("led_state");   // subscribe the topics here
+
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  String incommingMessage = "";
+  for (int i = 0; i < length; i++) incommingMessage+=(char)payload[i];
+
+  Serial.println("Message arrived ["+String(topic)+"]"+incommingMessage);
+
+  //--- check the incomming message
+
+}
+
+void publishMessage(const char* topic, String payload , boolean retained){
+  if (client.publish(topic, payload.c_str(), true))
+    Serial.println("Message published ["+String(topic)+"]: "+payload);
+}
+
 // Serial Communication --------------------------------------------------------------
 const byte rxPin = D1;
 const byte txPin = D2;
@@ -36,7 +87,8 @@ const byte numChars = 32;
 char receivedChars[numChars];
 char tempChars[numChars];       
 
-char recvType[numChars] = {0};
+char recvType[numChars]  = {0};
+char recvTopic[numChars] = {0};
 char recvValue[numChars] = {0};
 
 boolean newData = false;
@@ -72,10 +124,10 @@ void recvSerialData(){
   }
 
   if (newData == true) {
+    //Serial.println(receivedChars);
     strcpy(tempChars, receivedChars);
     parseData();
     showParsedData();
-    //sendMqttData(recvType, recvValue);
     newData = false;
   }
 }
@@ -87,14 +139,35 @@ void parseData() {
   strcpy(recvType, strtokIndx); 
 
   strtokIndx = strtok(NULL, ",");
+  strcpy(recvTopic, strtokIndx); 
+
+  strtokIndx = strtok(NULL, ",");
   strcpy(recvValue, strtokIndx); 
 }
 
 void showParsedData() {
-  Serial.print("Type: ");
-  Serial.print(recvType); 
-  Serial.print(" Value: ");
-  Serial.println(recvValue);
+  //Serial.print("Type: ");
+  //Serial.print(recvType); 
+  //Serial.print(" / Topic: ");
+  //Serial.print(recvTopic);
+  //Serial.print(" / Value: ");
+  //Serial.println(recvValue);
+
+  DynamicJsonDocument doc(1024);
+
+  doc["device"] = "indoor";
+  doc["type"] = recvType;
+  doc["topic"] = recvTopic;
+  
+  delay(1000); doc["value"] = recvValue;
+
+  char mqtt_message[128];
+  serializeJson(doc, mqtt_message);
+
+  publishMessage(recvTopic, mqtt_message, true);
+  Serial.println("");
+
+  delay(500);
 }
 
 // -----------------------------------------------------------------------------------
@@ -103,16 +176,20 @@ void setup() {
   ESP_Serial.begin(9600);
 
   setup_wifi();
-  //client.setServer(mqtt_server, mqtt_port);
+  
+  espClient.setInsecure();
+
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 
   Serial.println("<ESP is ready>");
 }
 
 void loop() {
-  //if (!client.connected()) {
-  //  reconnect();
-  //}  
-  //client.loop();
+  if (!client.connected()) {
+    reconnect();
+  }  
+  client.loop();
 
   recvSerialData();
 }

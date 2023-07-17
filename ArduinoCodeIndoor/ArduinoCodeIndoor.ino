@@ -6,35 +6,41 @@ const byte rxPin = 10;
 const byte txPin = 11;
 SoftwareSerial Arduino_Serial (rxPin, txPin);
 
-void sendSerialData(const char *type, float value){
+void sendSerialData(const char *type, char *topic, float value){
   char finalBuffer[32] = ""; 
   
-  static char temporalValue[7];
-  dtostrf(value, 6, 2, temporalValue);
+  static char strValue[7];
+  dtostrf(value, 6, 2, strValue);
 
   strcat(finalBuffer,"<");  
   strcat(finalBuffer,type);  
   strcat(finalBuffer,",");
-  strcat(finalBuffer,temporalValue);
+  strcat(finalBuffer,topic); 
+  strcat(finalBuffer,",");
+  strcat(finalBuffer,strValue);
   strcat(finalBuffer,">");
 
   Serial.println(finalBuffer);
   Arduino_Serial.print(finalBuffer);
+  delay(2000);
 }
 
 // DHT20 -----------------------------------------------------------------------------
+const char *topicTemp = "indoor/00001/temp";
+const char *topicHum  = "indoor/00001/hum";
 Adafruit_AHTX0 aht;
 
 void dht20_Reading(){
-  sensors_event_t humidity, temp;
-  aht.getEvent(&humidity, &temp);
-  delay(1000); 
+  sensors_event_t hum, temp;
+  aht.getEvent(&hum, &temp);
 
-  sendSerialData("temp",temp.temperature);
-  sendSerialData("hum" ,humidity.relative_humidity);
+  sendSerialData("temp", topicTemp, temp.temperature);
+
+  sendSerialData("hum" , topicHum , hum.relative_humidity);
 }
 
 // GP2Y1010AU0F -----------------------------------------------------------------------------
+const char *topicDust = "indoor/00001/dust";
 #define dustPin A0 // white wire
 #define ledPin 7   // green wire
 
@@ -56,9 +62,8 @@ void gp2y1010au0f_Reading(){
 
   output_voltage = (output_voltage / 1023) * ANALOG_VOLTAGE;
   dust_density = (0.18 * output_voltage) - 0.1;  
-  delay(1000);
 
-  sendSerialData("dust" ,dust_density);
+  sendSerialData("dust", topicDust, dust_density);
 }
 
 // -----------------------------------------------------------------------------------
