@@ -51,7 +51,8 @@ void reconnect() {
     // Attempt to connect
     if (client.connect(clientId.c_str(),mqtt_username,mqtt_password)) {
       Serial.println("connected");
-      //client.subscribe("led_state");   // subscribe the topics here
+      
+      // subscribe the topics here
 
     } else {
       Serial.print("failed, rc=");
@@ -122,17 +123,9 @@ void recvSerialData(){
       recvInProgress = true;
     }
   }
-
-  if (newData == true) {
-    //Serial.println(receivedChars);
-    strcpy(tempChars, receivedChars);
-    parseData();
-    showParsedData();
-    newData = false;
-  }
 }
 
-void parseData() {     
+void parseRecvData() {     
   char* strtokIndx; 
 
   strtokIndx = strtok(tempChars,",");     
@@ -146,26 +139,27 @@ void parseData() {
 }
 
 void showParsedData() {
-  //Serial.print("Type: ");
-  //Serial.print(recvType); 
-  //Serial.print(" / Topic: ");
-  //Serial.print(recvTopic);
-  //Serial.print(" / Value: ");
-  //Serial.println(recvValue);
+  Serial.print("Type: ");
+  Serial.print(recvType); 
+  Serial.print(" / Topic: ");
+  Serial.print(recvTopic);
+  Serial.print(" / Value: ");
+  Serial.println(recvValue);
+}
 
+
+void sendSerialData(){
   DynamicJsonDocument doc(1024);
 
   doc["device"] = "indoor";
   doc["type"] = recvType;
   doc["topic"] = recvTopic;
-  
-  delay(1000); doc["value"] = recvValue;
-
+  doc["value"] = recvValue;
+ 
   char mqtt_message[128];
   serializeJson(doc, mqtt_message);
 
   publishMessage(recvTopic, mqtt_message, true);
-  Serial.println("");
 
   delay(500);
 }
@@ -192,5 +186,13 @@ void loop() {
   client.loop();
 
   recvSerialData();
+  if (newData == true) {
+    //Serial.println(receivedChars);
+    strcpy(tempChars, receivedChars);
+    parseRecvData();
+    //showParsedData();
+    sendSerialData();
+    newData = false;
+  }
 }
 
