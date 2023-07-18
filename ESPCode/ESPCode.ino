@@ -84,7 +84,7 @@ const byte rxPin = D1;
 const byte txPin = D2;
 SoftwareSerial ESP_Serial(rxPin, txPin);
 
-const byte numChars = 32;
+const byte numChars = 64;
 char receivedChars[numChars];
 char tempChars[numChars];       
 
@@ -147,7 +147,6 @@ void showParsedData() {
   Serial.println(recvValue);
 }
 
-
 void sendSerialData(){
   DynamicJsonDocument doc(1024);
 
@@ -160,8 +159,6 @@ void sendSerialData(){
   serializeJson(doc, mqtt_message);
 
   publishMessage(recvTopic, mqtt_message, true);
-
-  delay(500);
 }
 
 // -----------------------------------------------------------------------------------

@@ -7,7 +7,7 @@ const byte txPin = 11;
 SoftwareSerial Arduino_Serial (rxPin, txPin);
 
 void sendSerialData(const char *type, char *topic, float value){
-  char finalBuffer[32] = ""; 
+  char finalBuffer[64] = ""; 
   
   static char strValue[7];
   dtostrf(value, 6, 2, strValue);
@@ -22,7 +22,7 @@ void sendSerialData(const char *type, char *topic, float value){
 
   Serial.println(finalBuffer);
   Arduino_Serial.print(finalBuffer);
-  delay(2000);
+  delay(1000);
 }
 
 // DHT20 -----------------------------------------------------------------------------
@@ -74,6 +74,8 @@ void setup() {
   aht.begin();
 
   pinMode(ledPin, OUTPUT);
+
+  delay(1000);
 
   Serial.println("<Arduino is ready>");
 }
