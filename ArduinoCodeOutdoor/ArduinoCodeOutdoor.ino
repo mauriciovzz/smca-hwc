@@ -22,7 +22,7 @@ void sendSerialData(const char *type, char *topic, float value){
   strcat(finalBuffer,">");
 
   Serial.println(finalBuffer);
-  Arduino_Serial.print(finalBuffer);
+  //Arduino_Serial.print(finalBuffer);
   delay(1000);
 }
 
@@ -67,11 +67,47 @@ void sen54_reading(){
   }
 }
 
+// ML8511 -----------------------------------------------------------------------------
+const char *topicUVI  = "outdoor/00001/UVI";
+
+int UVOUT = A0; 	  //Output from the sensor
+int REF_3V3 = A1; 	//3.3V power on the Arduino board
+
+void ml8511_reading(){
+  int uvLevel = averageAnalogRead(UVOUT);
+  int refLevel = averageAnalogRead(REF_3V3);
+
+  //Use the 3.3V power pin as a reference to get a very accurate output value from sensor
+  float outputVoltage = 3.3 / refLevel * uvLevel;
+  
+  //Convert the voltage to a UV intensity level
+  float uvIntensity = mapfloat(outputVoltage, 0.99, 2.8, 0.0, 15.0); 
+
+  sendSerialData("uvi", topicUVI, uvIntensity);
+
+}
+
+int averageAnalogRead(int pinToRead){
+  byte numberOfReadings = 8;
+  unsigned int runningValue = 0; 
+
+  for(int x = 0 ; x < numberOfReadings ; x++)
+    runningValue += analogRead(pinToRead);
+  runningValue /= numberOfReadings;
+
+  return(runningValue);  
+}
+
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max){
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 // -----------------------------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
   Arduino_Serial.begin(9600);
-
+  
+  // SEN54 ---
   Wire.begin();
   sen5x.begin(Wire);
   delay(2000);
@@ -104,11 +140,17 @@ void setup() {
     errorToString(error, errorMessage, 256);
     Serial.println(errorMessage);
   }
-  delay(1000);
+
+  // ML8511 ---
+  pinMode(UVOUT, INPUT);
+  pinMode(REF_3V3, INPUT);
   
+  // Start
+  delay(1000);
   Serial.println("<Arduino is ready>");
 }
 
 void loop() {
-  sen54_reading();
+  //sen54_reading();
+  ml8511_reading();
 }
