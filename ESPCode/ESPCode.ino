@@ -1,9 +1,9 @@
+#include "config.h"
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
-#include "config.h"
 
 // WIFI ------------------------------------------------------------------------------
 const char* ssid = WIFI_SSID;
@@ -32,11 +32,11 @@ void setup_wifi() {
 }
 
 // MQTT ------------------------------------------------------------------------------
-const char *mqtt_server = MQTT_SERVER; 
-const char *mqtt_clientid = MQTT_CLIENT_ID;
-const char *mqtt_username = MQTT_USERNAME;
-const char *mqtt_password = MQTT_PASSWORD;
-const int   mqtt_port = MQTT_PORT;
+const char *mqtt_server         = MQTT_SERVER; 
+const char *mqtt_clientid       = MQTT_CLIENT_ID;
+const char *mqtt_username       = MQTT_USERNAME;
+const char *mqtt_password       = MQTT_PASSWORD;
+const int   mqtt_port           = MQTT_PORT;
 const int   mqtt_websocket_port = MQTT_WEBSOCKET_PORT;
 
 WiFiClientSecure espClient;
@@ -76,7 +76,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 void publishMessage(const char* topic, String payload , boolean retained){
   if (client.publish(topic, payload.c_str(), true))
-    Serial.println("Message published ["+String(topic)+"]: "+payload);
+    Serial.println("["+String(topic)+"]: "+payload);
 }
 
 // Serial Communication --------------------------------------------------------------
@@ -84,13 +84,16 @@ const byte rxPin = D1;
 const byte txPin = D2;
 SoftwareSerial ESP_Serial(rxPin, txPin);
 
-const byte numChars = 64;
+const byte numChars = 100;
 char receivedChars[numChars];
 char tempChars[numChars];       
 
-char recvType[numChars]  = {0};
-char recvTopic[numChars] = {0};
-char recvValue[numChars] = {0};
+char node_type[10]     = {0};
+char node_id[10]       = {0};
+char reading_date[15]  = {0};
+char reading_time[10]  = {0};
+char variable_id[15]   = {0};
+char reading_value[10] = {0};
 
 boolean newData = false;
 
@@ -129,36 +132,65 @@ void parseRecvData() {
   char* strtokIndx; 
 
   strtokIndx = strtok(tempChars,",");     
-  strcpy(recvType, strtokIndx); 
+  strcpy(node_type, strtokIndx); 
+
+  strtokIndx = strtok(NULL,",");     
+  strcpy(node_id, strtokIndx); 
 
   strtokIndx = strtok(NULL, ",");
-  strcpy(recvTopic, strtokIndx); 
+  strcpy(reading_date, strtokIndx); 
 
   strtokIndx = strtok(NULL, ",");
-  strcpy(recvValue, strtokIndx); 
+  strcpy(reading_time, strtokIndx); 
+
+  strtokIndx = strtok(NULL, ",");
+  strcpy(variable_id, strtokIndx); 
+
+  strtokIndx = strtok(NULL, ",");
+  strcpy(reading_value, strtokIndx); 
+
 }
 
 void showParsedData() {
-  Serial.print("Type: ");
-  Serial.print(recvType); 
-  Serial.print(" / Topic: ");
-  Serial.print(recvTopic);
-  Serial.print(" / Value: ");
-  Serial.println(recvValue);
+  Serial.print("TYPE: ");
+  Serial.print(node_type); 
+  Serial.print("\t");
+
+  Serial.print("ID: ");
+  Serial.print(node_id); 
+  Serial.print("\t");
+
+  Serial.print("DATE: ");
+  Serial.print(reading_date); 
+  Serial.print("\t");
+
+  Serial.print("TIME: ");
+  Serial.print(reading_time); 
+  Serial.print("\t");
+
+  Serial.print("VARIABLE: ");
+  Serial.print(variable_id); 
+  Serial.print("\t");
+
+  Serial.print("VALUE: ");
+  Serial.println(reading_value); 
 }
 
 void sendSerialData(){
   DynamicJsonDocument doc(1024);
 
-  doc["device"] = "indoor";
-  doc["type"] = recvType;
-  doc["topic"] = recvTopic;
-  doc["value"] = recvValue;
+  doc["nodeType"]     = node_type;
+  doc["nodeId"]       = node_id;
+  doc["readingDate"]  = reading_date;
+  doc["readingTime"]  = reading_time;
+  doc["variableId"]   = variable_id;
+  doc["readingValue"] = reading_value;
  
-  char mqtt_message[128];
+  char mqtt_message[160];
   serializeJson(doc, mqtt_message);
 
-  publishMessage(recvTopic, mqtt_message, true);
+  char topic[20] = "/node_readings";
+  publishMessage(topic, mqtt_message, true);
 }
 
 // -----------------------------------------------------------------------------------
@@ -181,11 +213,11 @@ void loop() {
     reconnect();
   }  
   client.loop();
-
+  
   recvSerialData();
   if (newData == true) {
-    //Serial.println(receivedChars);
     strcpy(tempChars, receivedChars);
+    //Serial.println(receivedChars);
     parseRecvData();
     //showParsedData();
     sendSerialData();
